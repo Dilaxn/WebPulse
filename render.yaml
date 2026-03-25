@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: pulseapi
+    runtime: node
+    buildCommand: npm install && cd client && npm install && npm run build && cd ..
+    startCommand: NODE_ENV=production node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_CHEERIO_ONLY
+        value: false
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: APP_URL
+        sync: false

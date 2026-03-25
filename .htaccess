@@ -1,0 +1,12 @@
+# Namecheap shared hosting Node.js configuration via Phusion Passenger
+# NOTE: Replace YOUR_CPANEL_USERNAME with your actual cPanel username
+
+PassengerNodejs /home/YOUR_CPANEL_USERNAME/nodevenv/pulseapi.dilax.space/20/bin/node
+PassengerAppRoot /home/YOUR_CPANEL_USERNAME/pulseapi.dilax.space
+PassengerStartupFile server/index.js
+PassengerAppType node
+
+# Force HTTPS
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
