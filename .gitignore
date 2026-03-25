@@ -4,3 +4,4 @@ client/build/
 .env
 *.log
 .DS_Store
+*.zip
