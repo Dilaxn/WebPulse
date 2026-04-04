@@ -4,7 +4,7 @@ import { getMonitor, deleteMonitor, toggleMonitor, runMonitor } from '../utils/a
 import { formatDistanceToNow, format } from 'date-fns';
 import {
   FiArrowLeft, FiEdit, FiTrash2, FiRefreshCw, FiPlay,
-  FiPause, FiExternalLink, FiClock, FiCheck, FiX, FiAlertCircle
+  FiPause, FiExternalLink, FiCheck, FiX, FiAlertCircle, FiZap
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -97,10 +97,7 @@ const MonitorDetailPage = () => {
       {/* Info Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 28 }}>
         {[
-          { label: 'Type', value: m.type.replace('_', ' ') },
           { label: 'Interval', value: m.interval },
-          { label: 'Selector', value: m.selector || 'None', mono: true },
-          { label: 'Condition', value: `${m.condition.operator.replace('_', ' ')} ${m.condition.value || ''}` },
           { label: 'Total Checks', value: m.checkCount },
           { label: 'Triggers', value: m.triggerCount },
           { label: 'Status', value: m.isPaused ? 'Paused' : m.lastStatus || 'Pending' },
@@ -120,6 +117,18 @@ const MonitorDetailPage = () => {
           </div>
         ))}
       </div>
+
+      {/* AI Condition */}
+      {m.aiPrompt && (
+        <div className="card" style={{ marginBottom: 28, padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+            <FiZap size={13} style={{ color: 'var(--accent)' }} /> AI Alert Condition
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: 1.6 }}>
+            "{m.aiPrompt}"
+          </div>
+        </div>
+      )}
 
       {/* Current Value */}
       {m.lastValue && (

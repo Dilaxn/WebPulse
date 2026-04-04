@@ -86,7 +86,7 @@ const MonitorsPage = () => {
                           {m.isPaused ? 'Paused' : 'Active'}
                         </span>
                         <span className="badge badge-muted"><FiClock size={10} /> {m.interval}</span>
-                        <span className="badge badge-muted">{m.type.replace('_', ' ')}</span>
+                        <span className="badge badge-muted">AI Monitor</span>
                         {m.triggerCount > 0 && (
                           <span className="badge badge-info">{m.triggerCount} triggers</span>
                         )}

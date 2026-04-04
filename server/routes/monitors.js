@@ -34,8 +34,8 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, [
   body('name').trim().notEmpty().withMessage('Name required'),
   body('url').isURL().withMessage('Valid URL required'),
-  body('type').isIn(['price_drop', 'text_match', 'element_exists', 'element_change', 'custom_css']).withMessage('Invalid type'),
-  body('interval').isIn(['1m', '5m', '15m', '30m', '1h', '3h', '6h', '12h', '1d']).withMessage('Invalid interval')
+  body('aiPrompt').trim().notEmpty().withMessage('AI condition is required'),
+  body('interval').isIn(['5m', '15m', '30m', '1h', '3h', '6h', '12h', '1d']).withMessage('Invalid interval')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -43,7 +43,8 @@ router.post('/', auth, [
 
     const monitor = await Monitor.create({
       ...req.body,
-      user: req.userId
+      user: req.userId,
+      condition: { operator: 'ai_match', value: '', valueType: 'string' }
     });
 
     // Schedule the new monitor
@@ -62,9 +63,9 @@ router.put('/:id', auth, async (req, res) => {
     if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 
     const allowedFields = [
-      'name', 'url', 'description', 'type', 'selector', 'attribute',
-      'regex', 'condition', 'aiPrompt', 'interval', 'notifyVia', 'notificationEmails',
-      'webhookUrl', 'isActive', 'isPaused', 'usePuppeteer'
+      'name', 'url', 'description', 'aiPrompt',
+      'interval', 'notifyVia', 'notificationEmails',
+      'isActive', 'isPaused'
     ];
 
     allowedFields.forEach(field => {
