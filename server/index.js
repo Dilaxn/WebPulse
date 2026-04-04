@@ -27,14 +27,19 @@ const PORT = process.env.PORT || 5000;
 // Security & Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// ✅ Replace the old app.use(cors()) with this
+// In production (same-origin), CORS is not needed.
+// In development, allow the local React dev server.
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? (process.env.APP_URL ? [process.env.APP_URL] : true)
+  : ['http://localhost:3000', 'http://localhost:3002'];
+
 app.use(cors({
-  origin: ['https://pulseapi.dilax.space', 'http://localhost:3000', 'http://localhost:3002'],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-app.options('*', cors()); // Handle preflight
+app.options('*', cors());
 
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
