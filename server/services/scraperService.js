@@ -83,16 +83,21 @@ class ScraperService {
     let page;
     try {
       if (!this.browser || !this.browser.isConnected()) {
-        this.browser = await puppeteer.launch({
-          headless: 'new',
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--single-process'
-          ]
-        });
+        try {
+          this.browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--single-process'
+            ]
+          });
+        } catch (launchError) {
+          console.warn('⚠️  Puppeteer browser launch failed, falling back to Cheerio:', launchError.message);
+          return this.scrapeWithCheerio(url, selector, attribute, regex);
+        }
       }
 
       page = await this.browser.newPage();
