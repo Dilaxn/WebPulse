@@ -134,12 +134,21 @@ router.post('/:id/toggle', auth, async (req, res) => {
 // POST /api/monitors/test-scrape - Test scrape without saving
 router.post('/test-scrape', auth, async (req, res) => {
   try {
-    const { url, selector, attribute, regex, usePuppeteer } = req.body;
+    const { url, selector, attribute, regex, usePuppeteer, useJina } = req.body;
     if (!url) return res.status(400).json({ error: 'URL required' });
 
-    const result = usePuppeteer
-      ? await scraper.scrapeWithPuppeteer(url, selector, attribute, regex)
-      : await scraper.scrapeWithCheerio(url, selector, attribute, regex);
+    let result;
+    if (useJina || !selector) {
+      // No selector = AI monitor mode: use Jina Reader for JS-rendered content
+      result = await scraper.scrapeWithJina(url);
+      if (!result.success) {
+        result = await scraper.scrapeWithCheerio(url, null, attribute, regex);
+      }
+    } else if (usePuppeteer) {
+      result = await scraper.scrapeWithPuppeteer(url, selector, attribute, regex);
+    } else {
+      result = await scraper.scrapeWithCheerio(url, selector, attribute, regex);
+    }
 
     res.json(result);
   } catch (err) {

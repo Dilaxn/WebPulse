@@ -25,7 +25,7 @@ or
 
   const userMessage = `Scraped content:
 """
-${scrapedContent.substring(0, 6000)}
+${scrapedContent.substring(0, 8000)}
 """
 
 Condition: "${userPrompt}"`;

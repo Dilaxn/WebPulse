@@ -5,7 +5,7 @@ let puppeteer;
 try {
   puppeteer = require('puppeteer');
 } catch (e) {
-  console.log('⚠️  Puppeteer not available, using Cheerio-only mode');
+  console.log('⚠️  Puppeteer not available, using Cheerio/Jina mode');
 }
 
 class ScraperService {
@@ -22,7 +22,28 @@ class ScraperService {
     return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
   }
 
-  // ---- Cheerio-based scraping (fast, lightweight) ----
+  // ---- Jina Reader (renders JS pages, returns clean text — perfect for AI monitors) ----
+  async scrapeWithJina(url) {
+    try {
+      const jinaUrl = `https://r.jina.ai/${url}`;
+      const { data } = await axios.get(jinaUrl, {
+        headers: {
+          'Accept': 'text/plain',
+          'X-Return-Format': 'text',
+          'User-Agent': this.getRandomUA()
+        },
+        timeout: 45000
+      });
+
+      const text = typeof data === 'string' ? data : JSON.stringify(data);
+      return { success: true, value: text.substring(0, 8000) };
+    } catch (error) {
+      console.warn(`⚠️  Jina Reader failed for ${url}: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // ---- Cheerio-based scraping (for selector-based monitors on static HTML) ----
   async scrapeWithCheerio(url, selector, attribute = 'text', regex = null) {
     try {
       const { data } = await axios.get(url, {
@@ -56,8 +77,9 @@ class ScraperService {
           value = element.attr(attribute) || '';
         }
       } else {
-        // No selector — get full page text
-        value = $('body').text().trim().substring(0, 5000);
+        // Strip style/script/svg so CSS doesn't eat the character budget
+        $('style, script, noscript, svg').remove();
+        value = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 8000);
       }
 
       // Apply regex if provided
@@ -74,10 +96,10 @@ class ScraperService {
     }
   }
 
-  // ---- Puppeteer-based scraping (for JS-rendered pages) ----
+  // ---- Puppeteer-based scraping (for JS-rendered pages with selectors) ----
   async scrapeWithPuppeteer(url, selector, attribute = 'text', regex = null) {
     if (!puppeteer) {
-      return this.scrapeWithCheerio(url, selector, attribute, regex);
+      return this.scrapeWithJina(url);
     }
 
     let page;
@@ -95,7 +117,9 @@ class ScraperService {
             ]
           });
         } catch (launchError) {
-          console.warn('⚠️  Puppeteer browser launch failed, falling back to Cheerio:', launchError.message);
+          console.warn('⚠️  Puppeteer browser launch failed, falling back to Jina/Cheerio:', launchError.message);
+          // For AI monitors (no selector), use Jina; otherwise Cheerio
+          if (!selector) return this.scrapeWithJina(url);
           return this.scrapeWithCheerio(url, selector, attribute, regex);
         }
       }
@@ -117,7 +141,6 @@ class ScraperService {
 
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
 
-      // Wait for selector if provided
       if (selector) {
         await page.waitForSelector(selector, { timeout: 15000 }).catch(() => {});
       }
@@ -133,10 +156,9 @@ class ScraperService {
           return el.getAttribute(attr) || '';
         }, selector, attribute);
       } else {
-        value = await page.evaluate(() => document.body.innerText.substring(0, 5000));
+        value = await page.evaluate(() => document.body.innerText.substring(0, 8000));
       }
 
-      // Apply regex
       if (regex && value) {
         const match = value.match(new RegExp(regex));
         if (match) value = match[1] || match[0];
@@ -152,8 +174,20 @@ class ScraperService {
 
   // ---- Main scrape method ----
   async scrape(monitor) {
-    const { url, selector, attribute, regex, usePuppeteer } = monitor;
+    const { url, selector, attribute, regex, usePuppeteer, condition } = monitor;
+    const isAiMonitor = condition && condition.operator === 'ai_match';
 
+    // AI monitors (no selector): always use Jina Reader — renders JS, returns clean text
+    if (isAiMonitor || !selector) {
+      console.log(`  🌐 Using Jina Reader for: ${url}`);
+      const jinaResult = await this.scrapeWithJina(url);
+      if (jinaResult.success) return jinaResult;
+      // Jina failed — fall back to Cheerio
+      console.warn('  ⚠️  Jina fallback to Cheerio');
+      return this.scrapeWithCheerio(url, null, attribute, regex);
+    }
+
+    // Selector-based monitors: use Puppeteer if requested, otherwise Cheerio
     if (usePuppeteer && process.env.USE_CHEERIO_ONLY !== 'true') {
       return this.scrapeWithPuppeteer(url, selector, attribute, regex);
     }
@@ -168,15 +202,11 @@ class ScraperService {
     let target = targetValue;
 
     if (valueType === 'number') {
-      // Smart extraction: prefer comma-formatted prices (e.g. "22KT LKR 377,400" -> 377400)
       const extractNumber = (str) => {
-        // Prefer comma-formatted numbers (e.g. "22KT LKR 377,400" -> 377400)
         const commaMatches = str.match(/\d{1,3}(?:,\d{3})+(?:\.\d+)?/g);
         if (commaMatches) {
           return parseFloat(commaMatches[commaMatches.length - 1].replace(/,/g, ''));
         }
-        // Fall back: collect all plain numbers, return the last one >= 100
-        // (avoids "22" in "22KT" being mistaken for a price)
         const plainMatches = (str.match(/\d+(?:\.\d+)?/g) || []).map(Number);
         const large = plainMatches.filter(n => n >= 100);
         if (large.length) return large[large.length - 1];
@@ -197,7 +227,7 @@ class ScraperService {
       case 'greater_than':
         return { met: current > target, reason: `${current} ${current > target ? '>' : '<='} ${target}` };
       case 'equals':
-        return { met: String(current) === String(target), reason: `"${current}" ${current == target ? '==' : '!='} "${target}"` };
+        return { met: String(current) === String(target), reason: `"${current}" ${String(current) === String(target) ? '==' : '!='} "${target}"` };
       case 'contains':
         return { met: String(current).toLowerCase().includes(String(target).toLowerCase()), reason: `Contains check for "${target}"` };
       case 'not_contains':
@@ -214,7 +244,7 @@ class ScraperService {
         };
       }
       case 'changes':
-        return { met: true, reason: 'Value change detected' }; // Handled separately in scheduler
+        return { met: true, reason: 'Value change detected' };
       default:
         return { met: false, reason: 'Unknown operator' };
     }
