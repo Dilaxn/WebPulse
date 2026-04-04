@@ -26,15 +26,17 @@ class ScraperService {
   async scrapeWithJina(url) {
     try {
       const jinaUrl = `https://r.jina.ai/${url}`;
-      const { data } = await axios.get(jinaUrl, {
-        headers: {
-          'Accept': 'text/plain',
-          'X-Return-Format': 'text',
-          'User-Agent': this.getRandomUA()
-        },
-        timeout: 45000
-      });
-
+      const headers = {
+        'Accept': 'text/plain',
+        'X-Return-Format': 'text',
+        'X-Timeout': '30',
+        'User-Agent': this.getRandomUA()
+      };
+      // Use API key if provided (higher rate limits, fewer 403s)
+      if (process.env.JINA_API_KEY) {
+        headers['Authorization'] = `Bearer ${process.env.JINA_API_KEY}`;
+      }
+      const { data } = await axios.get(jinaUrl, { headers, timeout: 45000 });
       const text = typeof data === 'string' ? data : JSON.stringify(data);
       return { success: true, value: text.substring(0, 8000) };
     } catch (error) {
@@ -49,10 +51,16 @@ class ScraperService {
       const { data } = await axios.get(url, {
         headers: {
           'User-Agent': this.getRandomUA(),
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive'
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Upgrade-Insecure-Requests': '1'
         },
         timeout: 30000,
         maxRedirects: 5

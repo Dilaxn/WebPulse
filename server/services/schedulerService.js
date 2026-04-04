@@ -109,7 +109,8 @@ class SchedulerService {
         console.log(`  🤖 AI prompt: "${prompt}"`);
         console.log(`  📄 Scraped content length: ${currentValue.length} chars`);
         const evaluation = await evaluateWithAI(currentValue, prompt);
-        console.log(`  📊 AI met: ${evaluation.met} | extracted: "${evaluation.extractedValue}" | reason: ${evaluation.reason}`);
+        console.log(`  📊 AI met: ${evaluation.met} | extracted: "${evaluation.extractedValue}"`);
+        console.log(`  📝 AI reason: ${evaluation.reason}`);
         // Use AI-extracted value for display if available (avoids storing full page dump)
         if (evaluation.extractedValue) {
           historyEntry.value = evaluation.extractedValue;
