@@ -180,6 +180,7 @@ select {
   top: 0; bottom: 0;
   overflow-y: auto;
   z-index: 100;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease;
 }
 .main-content {
   flex: 1;
@@ -187,6 +188,50 @@ select {
   padding: 32px;
   min-height: 100vh;
 }
+
+/* Mobile header */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 200;
+}
+.hamburger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.hamburger:hover { background: var(--bg-card); }
+
+/* Sidebar overlay */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+  animation: overlayIn 0.2s ease;
+}
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Scroll helper for tables */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* Toast customization */
 .toast-custom {
@@ -232,7 +277,37 @@ select {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .main-content { margin-left: 0; padding: 16px; }
+  /* Sidebar: slides in from left instead of being hidden */
+  .sidebar {
+    transform: translateX(-260px);
+    box-shadow: none;
+  }
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 8px 0 40px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Show mobile header */
+  .mobile-header { display: flex; }
+
+  /* Main content: no left margin + top padding for mobile header */
+  .main-content {
+    margin-left: 0;
+    padding: 72px 16px 24px;
+  }
+
   .form-row { grid-template-columns: 1fr; }
+
+  /* Dashboard monitor row: hide timestamp, stack badges */
+  .monitor-row-meta { display: none !important; }
+  .monitor-row-badges { flex-wrap: wrap; }
+
+  /* Monitors page footer: stack on mobile */
+  .monitor-footer { flex-direction: column !important; align-items: flex-start !important; gap: 2px !important; }
+
+  /* Detail page action buttons: wrap */
+  .detail-actions { flex-wrap: wrap !important; }
+
+  /* Hide table columns that overflow */
+  .hide-mobile { display: none !important; }
 }

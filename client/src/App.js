@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Sidebar from './components/Sidebar';
@@ -10,19 +10,45 @@ import MonitorFormPage from './pages/MonitorFormPage';
 import MonitorDetailPage from './pages/MonitorDetailPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
+import { FiMenu, FiZap } from 'react-icons/fi';
 import './styles/global.css';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-muted)' }}>
       Loading...
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
+
   return (
     <div className="app-layout">
-      <Sidebar />
+      {/* Mobile top bar */}
+      <header className="mobile-header">
+        <button className="hamburger" onClick={() => setSidebarOpen(o => !o)} aria-label="Menu">
+          <FiMenu size={22} />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 6,
+            background: 'linear-gradient(135deg, var(--accent), var(--accent-blue))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <FiZap size={14} color="#fff" />
+          </div>
+          <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px' }}>WebPulse</span>
+        </div>
+      </header>
+
+      {/* Overlay — closes sidebar on tap */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content">{children}</main>
     </div>
   );

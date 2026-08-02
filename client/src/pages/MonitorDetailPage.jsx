@@ -78,7 +78,7 @@ const MonitorDetailPage = () => {
             {m.url.substring(0, 80)}{m.url.length > 80 ? '...' : ''} <FiExternalLink size={12} />
           </a>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="detail-actions" style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary btn-sm" onClick={handleRun} disabled={running}>
             <FiRefreshCw size={14} /> {running ? 'Running...' : 'Run Now'}
           </button>
@@ -167,6 +167,7 @@ const MonitorDetailPage = () => {
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-scroll">
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
@@ -194,6 +195,7 @@ const MonitorDetailPage = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -116,7 +116,7 @@ const MonitorsPage = () => {
               </div>
 
               {/* Last check info */}
-              <div style={{
+              <div className="monitor-footer" style={{
                 borderTop: '1px solid var(--border)', padding: '8px 20px',
                 display: 'flex', justifyContent: 'space-between',
                 fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-secondary)'

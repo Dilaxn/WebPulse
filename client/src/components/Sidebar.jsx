@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getNotifications } from '../utils/api';
 import {
   FiActivity, FiMonitor, FiBell, FiSettings,
-  FiLogOut, FiPlus, FiHeart, FiZap
+  FiLogOut, FiPlus, FiZap
 } from 'react-icons/fi';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
   const { user, logoutUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Close drawer when navigating (mobile)
+  useEffect(() => {
+    onClose?.();
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchUnread = async () => {
@@ -42,7 +48,7 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar${isOpen ? ' sidebar-open' : ''}`}>
       {/* Logo */}
       <div style={{ padding: '0 24px 24px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -65,7 +71,7 @@ const Sidebar = () => {
         <NavLink to="/dashboard" style={({ isActive }) => ({ ...navStyle, ...(isActive ? activeStyle : {}) })}>
           <FiActivity size={16} /> Dashboard
         </NavLink>
-        <NavLink to="/monitors" style={({ isActive }) => ({ ...navStyle, ...(isActive ? activeStyle : {}) })}>
+        <NavLink to="/monitors" end style={({ isActive }) => ({ ...navStyle, ...(isActive ? activeStyle : {}) })}>
           <FiMonitor size={16} /> Monitors
         </NavLink>
         <NavLink to="/monitors/new" style={({ isActive }) => ({ ...navStyle, ...(isActive ? activeStyle : {}) })}>

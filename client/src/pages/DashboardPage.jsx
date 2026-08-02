@@ -113,7 +113,7 @@ const DashboardPage = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="monitor-row-badges" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <span className={`badge ${m.isPaused ? 'badge-warning' : m.lastStatus === 'error' ? 'badge-danger' : m.lastStatus === 'triggered' ? 'badge-success' : 'badge-info'}`}>
                   {m.isPaused ? 'Paused' : m.lastStatus || 'Pending'}
                 </span>
@@ -122,7 +122,8 @@ const DashboardPage = () => {
                 </span>
               </div>
 
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right', minWidth: 100 }}>
+              {/* Hidden on mobile to save space */}
+              <div className="monitor-row-meta" style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'right', minWidth: 100 }}>
                 {m.lastChecked
                   ? formatDistanceToNow(new Date(m.lastChecked), { addSuffix: true })
                   : 'Never checked'}
