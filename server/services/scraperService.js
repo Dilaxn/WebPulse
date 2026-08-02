@@ -33,7 +33,12 @@ class ScraperService {
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
-        '--single-process'
+        '--no-zygote',                        // required for Alpine/Docker stability
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--hide-scrollbars',
+        '--mute-audio'
+        // Note: --single-process removed — causes "Target closed" crash on Alpine
       ]
     };
   }
