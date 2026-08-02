@@ -4,7 +4,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const scraper = require('./scraperService');
 const emailService = require('./emailService');
-const { evaluateWithAI } = require('./aiService');
+const { evaluateWithAI, evaluateWithAIVision } = require('./aiService');
 
 class SchedulerService {
   constructor() {
@@ -71,23 +71,75 @@ class SchedulerService {
 
       console.log(`🔍 Checking: "${monitor.name}"`);
 
-      // Scrape the page
-      const result = await scraper.scrape(monitor);
+      monitor.lastChecked = new Date();
+      monitor.checkCount += 1;
 
       const historyEntry = {
         checkedAt: new Date(),
-        value: result.success ? result.value : null,
-        status: result.success ? 'success' : 'error',
-        error: result.success ? null : result.error
+        value: null,
+        status: 'success',
+        error: null
       };
 
-      monitor.lastChecked = new Date();
-      monitor.checkCount += 1;
+      // ── AI Vision path ───────────────────────────────────────────────────────
+      if (monitor.condition.operator === 'ai_match') {
+        const prompt = monitor.aiPrompt?.trim() || monitor.condition.value;
+        console.log(`  🤖 AI prompt: "${prompt}"`);
+        console.log(`  📸 Taking screenshot for vision analysis...`);
+
+        const screenshotResult = await scraper.scrapeWithScreenshot(monitor.url);
+        let evaluation;
+
+        if (screenshotResult.success) {
+          evaluation = await evaluateWithAIVision(screenshotResult.imageBase64, prompt);
+        } else {
+          // Fallback: Jina text if Puppeteer unavailable
+          console.warn(`  ⚠️  Screenshot failed (${screenshotResult.error}), falling back to Jina text...`);
+          const jinaResult = await scraper.scrapeWithJina(monitor.url);
+          if (!jinaResult.success) {
+            const errMsg = `Screenshot: ${screenshotResult.error} | Jina: ${jinaResult.error}`;
+            historyEntry.status = 'error';
+            historyEntry.error = errMsg;
+            monitor.lastStatus = 'error';
+            monitor.lastError = errMsg;
+            monitor.history.push(historyEntry);
+            await monitor.save();
+            console.log(`  ❌ All scrape methods failed: ${errMsg}`);
+            return;
+          }
+          console.log(`  📄 Jina content length: ${jinaResult.value.length} chars`);
+          evaluation = await evaluateWithAI(jinaResult.value, prompt);
+        }
+
+        console.log(`  📊 AI met: ${evaluation.met} | extracted: "${evaluation.extractedValue}"`);
+        console.log(`  📝 AI reason: ${evaluation.reason}`);
+
+        if (evaluation.extractedValue) {
+          historyEntry.value = evaluation.extractedValue;
+          monitor.lastValue = evaluation.extractedValue;
+        }
+        if (evaluation.met) {
+          await this.triggerAlert(monitor, evaluation.extractedValue || '');
+          historyEntry.status = 'triggered';
+        }
+
+        monitor.lastStatus = historyEntry.status;
+        monitor.lastError = null;
+        monitor.history.push(historyEntry);
+        await monitor.save();
+        return;
+      }
+
+      // ── Non-AI path (selector / changes / contains etc.) ────────────────────
+      const result = await scraper.scrape(monitor);
+
+      historyEntry.value = result.success ? result.value : null;
+      historyEntry.status = result.success ? 'success' : 'error';
+      historyEntry.error = result.success ? null : result.error;
 
       if (!result.success) {
         monitor.lastStatus = 'error';
         monitor.lastError = result.error;
-        historyEntry.status = 'error';
         monitor.history.push(historyEntry);
         await monitor.save();
         console.log(`  ❌ Error: ${result.error}`);
@@ -96,32 +148,12 @@ class SchedulerService {
 
       const currentValue = result.value;
 
-      // For "changes" operator, compare with last value
       if (monitor.condition.operator === 'changes') {
         if (monitor.lastValue && monitor.lastValue !== currentValue) {
           await this.triggerAlert(monitor, currentValue);
           historyEntry.status = 'triggered';
         }
-      } else if (monitor.condition.operator === 'ai_match') {
-        const prompt = monitor.aiPrompt && monitor.aiPrompt.trim()
-          ? monitor.aiPrompt.trim()
-          : monitor.condition.value;
-        console.log(`  🤖 AI prompt: "${prompt}"`);
-        console.log(`  📄 Scraped content length: ${currentValue.length} chars`);
-        const evaluation = await evaluateWithAI(currentValue, prompt);
-        console.log(`  📊 AI met: ${evaluation.met} | extracted: "${evaluation.extractedValue}"`);
-        console.log(`  📝 AI reason: ${evaluation.reason}`);
-        // Use AI-extracted value for display if available (avoids storing full page dump)
-        if (evaluation.extractedValue) {
-          historyEntry.value = evaluation.extractedValue;
-          monitor.lastValue = evaluation.extractedValue;
-        }
-        if (evaluation.met) {
-          await this.triggerAlert(monitor, evaluation.extractedValue || currentValue);
-          historyEntry.status = 'triggered';
-        }
       } else {
-        // Evaluate condition
         const evaluation = scraper.evaluateCondition(currentValue, monitor.condition);
         if (evaluation.met) {
           await this.triggerAlert(monitor, currentValue);
@@ -130,10 +162,7 @@ class SchedulerService {
         console.log(`  📊 Value: "${currentValue.substring(0, 80)}" | ${evaluation.reason}`);
       }
 
-      // For ai_match, lastValue is already set to extractedValue above (if available)
-      if (monitor.condition.operator !== 'ai_match') {
-        monitor.lastValue = currentValue;
-      }
+      monitor.lastValue = currentValue;
       monitor.lastStatus = historyEntry.status;
       monitor.lastError = null;
       monitor.history.push(historyEntry);

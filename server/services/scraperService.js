@@ -104,6 +104,55 @@ class ScraperService {
     }
   }
 
+  // ---- Screenshot-based scraping (for vision AI evaluation) ----
+  async scrapeWithScreenshot(url) {
+    if (!puppeteer) {
+      return { success: false, error: 'Puppeteer not available for screenshot mode' };
+    }
+
+    let page;
+    try {
+      if (!this.browser || !this.browser.isConnected()) {
+        try {
+          this.browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--single-process'
+            ]
+          });
+        } catch (launchError) {
+          return { success: false, error: `Browser launch failed: ${launchError.message}` };
+        }
+      }
+
+      page = await this.browser.newPage();
+      await page.setUserAgent(this.getRandomUA());
+      // Wide viewport so headers/nav render properly
+      await page.setViewport({ width: 1440, height: 900 });
+
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 45000 });
+
+      // Let JS-rendered content (prices, stock info, etc.) finish populating
+      await new Promise(r => setTimeout(r, 2000));
+
+      const screenshotBuffer = await page.screenshot({
+        type: 'jpeg',
+        quality: 35,      // Low quality keeps base64 small → cheaper vision tokens
+        fullPage: true    // Capture entire page so any content can be found
+      });
+
+      return { success: true, imageBase64: screenshotBuffer.toString('base64') };
+    } catch (error) {
+      return { success: false, error: error.message };
+    } finally {
+      if (page) await page.close().catch(() => {});
+    }
+  }
+
   // ---- Puppeteer-based scraping (for JS-rendered pages with selectors) ----
   async scrapeWithPuppeteer(url, selector, attribute = 'text', regex = null) {
     if (!puppeteer) {
