@@ -2,6 +2,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
+# Skip Puppeteer's Chrome download during npm ci — we use system Chromium at runtime
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 # Server deps
 COPY package*.json ./
 RUN npm ci
@@ -18,7 +21,21 @@ RUN npm prune --omit=dev
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production PORT=3005
+
+# Install Chromium + required libs for Puppeteer on Alpine
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto
+
+ENV NODE_ENV=production \
+    PORT=3005 \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 COPY --from=builder /app/node_modules  ./node_modules
 COPY --from=builder /app/server        ./server

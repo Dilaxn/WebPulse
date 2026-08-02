@@ -22,6 +22,22 @@ class ScraperService {
     return this.userAgents[Math.floor(Math.random() * this.userAgents.length)];
   }
 
+  getLaunchOptions() {
+    return {
+      headless: 'new',
+      // Use system Chromium in Docker (PUPPETEER_EXECUTABLE_PATH set in Dockerfile)
+      // Falls back to Puppeteer's bundled Chrome in local dev
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--single-process'
+      ]
+    };
+  }
+
   // ---- Jina Reader (renders JS pages, returns clean text — perfect for AI monitors) ----
   async scrapeWithJina(url) {
     try {
@@ -114,16 +130,7 @@ class ScraperService {
     try {
       if (!this.browser || !this.browser.isConnected()) {
         try {
-          this.browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--single-process'
-            ]
-          });
+          this.browser = await puppeteer.launch(this.getLaunchOptions());
         } catch (launchError) {
           return { success: false, error: `Browser launch failed: ${launchError.message}` };
         }
@@ -163,16 +170,7 @@ class ScraperService {
     try {
       if (!this.browser || !this.browser.isConnected()) {
         try {
-          this.browser = await puppeteer.launch({
-            headless: 'new',
-            args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-gpu',
-              '--single-process'
-            ]
-          });
+          this.browser = await puppeteer.launch(this.getLaunchOptions());
         } catch (launchError) {
           console.warn('⚠️  Puppeteer browser launch failed, falling back to Jina/Cheerio:', launchError.message);
           // For AI monitors (no selector), use Jina; otherwise Cheerio
