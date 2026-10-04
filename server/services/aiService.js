@@ -27,6 +27,24 @@ function extractNumber(value) {
   return candidates.length === 1 ? candidates[0] : NaN;
 }
 
+function findNumberOnPage(content, value) {
+  // Match the page's own formatting. An AI response may omit commas or currency
+  // even when it has selected the correct value.
+  const numbers = /\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d{1,3}(?:[\u00a0\u202f ]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g;
+  for (const match of content.matchAll(numbers)) {
+    const pageValue = Number(match[0].replace(/[,\u00a0\u202f ]/g, ''));
+    if (pageValue === value) {
+      const start = Math.max(0, match.index - 38);
+      const end = Math.min(content.length, match.index + match[0].length + 28);
+      return {
+        value: match[0],
+        evidence: content.slice(start, end).replace(/\s+/g, ' ').trim()
+      };
+    }
+  }
+  return null;
+}
+
 function missingEvidence(message) {
   const error = new Error(message);
   error.code = 'EVIDENCE_MISSING';
@@ -57,18 +75,25 @@ async function evaluateWithAI(scrapedContent, userPrompt) {
       (result.evidence !== null && typeof result.evidence !== 'string')) {
     throw new Error('OpenAI returned an invalid evaluation');
   }
-  if (!result.found || !result.extractedValue || !result.evidence) {
+  if (!result.found || !result.extractedValue) {
     throw missingEvidence(result.reason || 'The requested value was not found on the page');
-  }
-  if (!content.includes(result.evidence) || !content.includes(result.extractedValue)) {
-    throw missingEvidence('The extracted value could not be verified in the scraped page');
   }
   if (numeric) {
     const value = extractNumber(result.extractedValue);
     if (!Number.isFinite(value)) throw new Error('The requested number could not be read unambiguously');
+    const source = findNumberOnPage(content, value);
+    if (!source) throw missingEvidence(`The extracted number ${result.extractedValue} was not found in the scraped page`);
     const met = numeric.operator === '<' ? value < numeric.threshold : value > numeric.threshold;
-    return { met, extractedValue: result.extractedValue, evidence: result.evidence,
+    return { met, extractedValue: source.value, evidence: source.evidence,
       reason: `${value.toLocaleString()} ${numeric.operator} ${numeric.threshold.toLocaleString()} → ${met}` };
+  }
+  const normalizedPage = content.normalize('NFKC').replace(/\s+/g, ' ').toLowerCase();
+  const normalizedValue = result.extractedValue.normalize('NFKC').replace(/\s+/g, ' ').toLowerCase();
+  if (!normalizedPage.includes(normalizedValue)) {
+    throw missingEvidence('The extracted value could not be verified in the scraped page');
+  }
+  if (!result.evidence || !normalizedPage.includes(result.evidence.normalize('NFKC').replace(/\s+/g, ' ').toLowerCase())) {
+    throw missingEvidence('The source evidence could not be verified in the scraped page');
   }
   return { met: result.met, extractedValue: result.extractedValue, evidence: result.evidence, reason: result.reason };
 }
