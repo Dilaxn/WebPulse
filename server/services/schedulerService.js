@@ -4,12 +4,13 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const scraper = require('./scraperService');
 const emailService = require('./emailService');
-const { evaluateWithAI, evaluateWithAIVision } = require('./aiService');
+const { evaluateWithAI } = require('./aiService');
 
 class SchedulerService {
   constructor() {
     this.jobs = new Map(); // monitorId -> cron job
     this.isRunning = false;
+    this.runningChecks = new Set();
   }
 
   async init() {
@@ -62,6 +63,9 @@ class SchedulerService {
   }
 
   async runCheck(monitorId) {
+    const checkId = monitorId.toString();
+    if (this.runningChecks.has(checkId)) return;
+    this.runningChecks.add(checkId);
     try {
       const monitor = await Monitor.findById(monitorId);
       if (!monitor || !monitor.isActive || monitor.isPaused) {
@@ -81,50 +85,42 @@ class SchedulerService {
         error: null
       };
 
-      // ── AI Vision path ───────────────────────────────────────────────────────
+      // Read the same page text that the creation preview shows.
       if (monitor.condition.operator === 'ai_match') {
         const prompt = monitor.aiPrompt?.trim() || monitor.condition.value;
-        console.log(`  🤖 AI prompt: "${prompt}"`);
-        console.log(`  📸 Taking screenshot for vision analysis...`);
-
-        const screenshotResult = await scraper.scrapeWithScreenshot(monitor.url);
-        let evaluation;
-
-        if (screenshotResult.success) {
-          evaluation = await evaluateWithAIVision(screenshotResult.imageBase64, prompt);
-        } else {
-          // Fallback: Jina text if Puppeteer unavailable
-          console.warn(`  ⚠️  Screenshot failed (${screenshotResult.error}), falling back to Jina text...`);
-          const jinaResult = await scraper.scrapeWithJina(monitor.url);
-          if (!jinaResult.success) {
-            const errMsg = `Screenshot: ${screenshotResult.error} | Jina: ${jinaResult.error}`;
-            historyEntry.status = 'error';
-            historyEntry.error = errMsg;
-            monitor.lastStatus = 'error';
-            monitor.lastError = errMsg;
-            monitor.history.push(historyEntry);
-            await monitor.save();
-            console.log(`  ❌ All scrape methods failed: ${errMsg}`);
-            return;
+        try {
+          const tried = [];
+          let page, evaluation;
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            page = await scraper.scrapeForAI(monitor.url, tried);
+            if (!page.success) throw new Error(page.error);
+            tried.push(page.source);
+            try {
+              evaluation = await evaluateWithAI(page.value, prompt);
+              break;
+            } catch (error) {
+              if (error.code !== 'EVIDENCE_MISSING' || attempt === 2) throw error;
+            }
           }
-          console.log(`  📄 Jina content length: ${jinaResult.value.length} chars`);
-          evaluation = await evaluateWithAI(jinaResult.value, prompt);
-        }
-
-        console.log(`  📊 AI met: ${evaluation.met} | extracted: "${evaluation.extractedValue}"`);
-        console.log(`  📝 AI reason: ${evaluation.reason}`);
-
-        if (evaluation.extractedValue) {
           historyEntry.value = evaluation.extractedValue;
+          historyEntry.reason = evaluation.reason;
+          historyEntry.evidence = evaluation.evidence;
           monitor.lastValue = evaluation.extractedValue;
+          monitor.lastResult = evaluation.met;
+          monitor.lastSource = page.source || 'Page text';
+          if (evaluation.met) {
+            await this.triggerAlert(monitor, evaluation.extractedValue);
+            historyEntry.status = 'triggered';
+          }
+          monitor.lastStatus = historyEntry.status;
+          monitor.lastError = null;
+        } catch (error) {
+          historyEntry.status = 'error';
+          historyEntry.error = error.response?.data?.error?.message || error.message;
+          monitor.lastStatus = 'error';
+          monitor.lastError = historyEntry.error;
+          monitor.lastResult = null;
         }
-        if (evaluation.met) {
-          await this.triggerAlert(monitor, evaluation.extractedValue || '');
-          historyEntry.status = 'triggered';
-        }
-
-        monitor.lastStatus = historyEntry.status;
-        monitor.lastError = null;
         monitor.history.push(historyEntry);
         await monitor.save();
         return;
@@ -170,6 +166,8 @@ class SchedulerService {
 
     } catch (err) {
       console.error(`❌ Check failed for ${monitorId}:`, err.message);
+    } finally {
+      this.runningChecks.delete(checkId);
     }
   }
 

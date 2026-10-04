@@ -54,14 +54,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
             width: 36, height: 36, borderRadius: 8,
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-blue))',
+            background: '#253653',
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
             <FiZap size={18} color="#fff" />
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.5px' }}>WebPulse</div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Monitor Agent</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '.2px' }}>Your web, watched.</div>
           </div>
         </div>
       </div>

@@ -43,6 +43,38 @@ class ScraperService {
     };
   }
 
+  async scrapeWithFirecrawl(url) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (process.env.FIRECRAWL_API_KEY) headers.Authorization = `Bearer ${process.env.FIRECRAWL_API_KEY}`;
+      const response = await axios.post('https://api.firecrawl.dev/v2/scrape', {
+        url, formats: ['markdown'], maxAge: 0
+      }, { headers, timeout: 45000 });
+      const value = response.data?.data?.markdown;
+      if (!response.data?.success || !value?.trim()) throw new Error(response.data?.error || 'No readable page text');
+      return { success: true, value: value.slice(0, 30000), source: 'Firecrawl' };
+    } catch (error) {
+      return { success: false, error: `Firecrawl: ${error.response?.data?.error || error.message}` };
+    }
+  }
+
+  async scrapeForAI(url, skipSources = []) {
+    const attempts = [];
+    const firecrawl = () => this.scrapeWithFirecrawl(url);
+    const direct = () => this.scrapeWithCheerio(url);
+    // A free API key is recommended: some hosting IPs are blocked by keyless Firecrawl.
+    const methods = process.env.FIRECRAWL_API_KEY
+      ? [['Firecrawl', firecrawl], ['Direct HTML', direct], ['Jina Reader', () => this.scrapeWithJina(url)]]
+      : [['Direct HTML', direct], ['Firecrawl', firecrawl], ['Jina Reader', () => this.scrapeWithJina(url)]];
+    for (const [source, fetchPage] of methods) {
+      if (skipSources.includes(source)) continue;
+      const result = await fetchPage();
+      if (result.success && result.value?.trim()) return { ...result, source };
+      attempts.push(result.error || 'Empty page');
+    }
+    return { success: false, error: attempts.join(' | ') };
+  }
+
   // ---- Jina Reader (renders JS pages, returns clean text — perfect for AI monitors) ----
   async scrapeWithJina(url) {
     try {
@@ -59,7 +91,7 @@ class ScraperService {
       }
       const { data } = await axios.get(jinaUrl, { headers, timeout: 45000 });
       const text = typeof data === 'string' ? data : JSON.stringify(data);
-      return { success: true, value: text.substring(0, 8000) };
+      return { success: true, value: text.substring(0, 30000), source: 'Jina Reader' };
     } catch (error) {
       console.warn(`⚠️  Jina Reader failed for ${url}: ${error.message}`);
       return { success: false, error: error.message };
@@ -108,7 +140,7 @@ class ScraperService {
       } else {
         // Strip style/script/svg so CSS doesn't eat the character budget
         $('style, script, noscript, svg').remove();
-        value = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 8000);
+        value = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 30000);
       }
 
       // Apply regex if provided
@@ -119,7 +151,7 @@ class ScraperService {
         }
       }
 
-      return { success: true, value: value.trim() };
+      return { success: true, value: value.trim(), source: 'Direct HTML' };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -237,14 +269,9 @@ class ScraperService {
     const { url, selector, attribute, regex, usePuppeteer, condition } = monitor;
     const isAiMonitor = condition && condition.operator === 'ai_match';
 
-    // AI monitors (no selector): always use Jina Reader — renders JS, returns clean text
+    // AI monitors use the same text path for preview and scheduled checks.
     if (isAiMonitor || !selector) {
-      console.log(`  🌐 Using Jina Reader for: ${url}`);
-      const jinaResult = await this.scrapeWithJina(url);
-      if (jinaResult.success) return jinaResult;
-      // Jina failed — fall back to Cheerio
-      console.warn('  ⚠️  Jina fallback to Cheerio');
-      return this.scrapeWithCheerio(url, null, attribute, regex);
+      return this.scrapeForAI(url);
     }
 
     // Selector-based monitors: use Puppeteer if requested, otherwise Cheerio

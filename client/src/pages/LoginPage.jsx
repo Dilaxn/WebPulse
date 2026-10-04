@@ -36,8 +36,8 @@ const LoginPage = () => {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{
-            width: 56, height: 56, borderRadius: 14, margin: '0 auto 16px',
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-blue))',
+            width: 56, height: 56, borderRadius: 17, margin: '0 auto 16px',
+            background: '#253653',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 4px 30px var(--accent-dim)'
           }}>
@@ -45,14 +45,14 @@ const LoginPage = () => {
           </div>
           <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-1px' }}>WebPulse</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
-            Intelligent Web Monitoring Agent
+            Your web, watched.
           </p>
         </div>
 
         {/* Form */}
         <div className="card" style={{ padding: 32 }}>
           <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 24 }}>
-            {isRegister ? 'Create Account' : 'Sign In'}
+            {isRegister ? 'Create your account' : 'Welcome back'}
           </h2>
 
           <form onSubmit={handleSubmit}>

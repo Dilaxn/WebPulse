@@ -55,7 +55,7 @@ const MonitorsPage = () => {
   return (
     <div className="animate-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px' }}>Monitors</h1>
+        <div><div className="page-eyebrow">YOUR WATCHLIST</div><h1 style={{ fontSize: 30, fontWeight: 750, letterSpacing: '-1px', marginTop: 5 }}>Monitors</h1></div>
         <Link to="/monitors/new" className="btn btn-primary"><FiPlus size={16} /> New Monitor</Link>
       </div>
 
@@ -86,7 +86,9 @@ const MonitorsPage = () => {
                           {m.isPaused ? 'Paused' : 'Active'}
                         </span>
                         <span className="badge badge-muted"><FiClock size={10} /> {m.interval}</span>
-                        <span className="badge badge-muted">AI Monitor</span>
+                        <span className={`badge ${m.lastStatus === 'error' ? 'badge-danger' : m.lastResult === true ? 'badge-success' : 'badge-muted'}`}>
+                          {m.lastStatus === 'error' ? 'Check error' : m.lastResult === true ? 'True' : m.lastResult === false ? 'False' : 'Waiting'}
+                        </span>
                         {m.triggerCount > 0 && (
                           <span className="badge badge-info">{m.triggerCount} triggers</span>
                         )}

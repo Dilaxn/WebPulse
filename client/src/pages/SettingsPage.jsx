@@ -83,23 +83,18 @@ const SettingsPage = () => {
       {/* Setup Guide */}
       <div className="card" style={{ padding: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-          <FiShield size={18} /> Finding CSS Selectors
+          <FiShield size={18} /> How monitoring works
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-          <p style={{ marginBottom: 12 }}>To monitor a specific element on a web page:</p>
+          <p style={{ marginBottom: 12 }}>Create a monitor with a website URL and a condition in plain language.</p>
           <ol style={{ paddingLeft: 20 }}>
-            <li>Open the target URL in your browser</li>
-            <li>Right-click on the element you want to track</li>
-            <li>Select "Inspect" or "Inspect Element"</li>
-            <li>In the DevTools, right-click the highlighted HTML element</li>
-            <li>Choose "Copy" → "Copy selector"</li>
-            <li>Paste the selector into the CSS Selector field when creating a monitor</li>
+            <li>Preview the page to confirm the data is readable.</li>
+            <li>Describe exactly which item, unit, and threshold to check.</li>
+            <li>Choose a schedule and notification method.</li>
+            <li>Run the monitor once to confirm the extracted value and answer.</li>
           </ol>
           <p style={{ marginTop: 12 }}>
-            <strong>Tip:</strong> For price tracking, you can use a regex like <code style={{
-              fontFamily: 'var(--font-mono)', background: 'var(--bg-secondary)',
-              padding: '2px 6px', borderRadius: 4, fontSize: 12
-            }}>(\d[\d,.]+)</code> to extract just the number from text like "Rs. 360,000".
+            <strong>Example:</strong> “Return true if the 22KT gold price is less than 320000 LKR.” If the value cannot be verified, the check shows an error instead of a false answer.
           </p>
         </div>
       </div>

@@ -121,10 +121,10 @@ const MonitorFormPage = () => {
       </button>
 
       <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 6 }}>
-        {isEditing ? 'Edit Monitor' : 'New Monitor'}
+        {isEditing ? 'Edit your monitor' : 'Create a monitor'}
       </h1>
       <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 28 }}>
-        Describe what you want to watch. The AI reads the page and alerts you when the condition is met.
+        Add a page, describe what matters, and choose when to check it.
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -174,7 +174,7 @@ const MonitorFormPage = () => {
                 color: previewResult.success ? 'var(--success)' : 'var(--danger)',
                 fontWeight: 600, fontSize: 12
               }}>
-                {previewResult.success ? <><FiCheck size={13} /> Page content fetched — AI will read this</> : <><FiX size={13} /> Failed to fetch page</>}
+                {previewResult.success ? <><FiCheck size={13} /> Page text fetched via {previewResult.source || 'web scraper'}</> : <><FiX size={13} /> Failed to fetch page</>}
               </div>
               <pre style={{
                 fontFamily: 'var(--font-mono)', fontSize: 11, whiteSpace: 'pre-wrap',
@@ -238,7 +238,7 @@ const MonitorFormPage = () => {
               <select value={form.interval} onChange={e => updateForm('interval', e.target.value)}>
                 {INTERVALS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
               </select>
-              <div className="form-hint">More frequent checks use more resources. Use 1h or longer for stable pages.</div>
+              <div className="form-hint">Firecrawl’s free plan includes 1,000 page credits each month. One hourly monitor uses about 720 credits per 30 days.</div>
             </div>
           </div>
 

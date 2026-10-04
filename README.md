@@ -1,270 +1,42 @@
-# WebPulse — Intelligent Web Monitoring Agent
+# WebPulse
 
-A full-stack MERN application that monitors web pages, scrapes specific data using CSS selectors, evaluates conditions, and sends email/webhook alerts when conditions are met.
+WebPulse watches a web page on a schedule, evaluates a plain language condition with OpenAI, and shows the answer and observed value. It can send an email or in-app alert when the condition is true.
 
-## Features
+## Example
 
-- **Dynamic Monitor Creation** — Add unlimited web monitors via the dashboard
-- **Smart Scraping** — Cheerio (fast, lightweight) or Puppeteer (JavaScript-rendered pages)
-- **Flexible Conditions** — Less than, greater than, equals, contains, changes detection
-- **Multiple Alert Channels** — Email (SMTP), Webhooks, In-App notifications
-- **Configurable Intervals** — From every 1 minute to daily checks
-- **CSS Selector Targeting** — Monitor any element on any page
-- **Regex Extraction** — Pull numbers from price strings like "Rs. 360,000"
-- **Check History** — Track last 50 checks per monitor with values and timestamps
-- **Test Before Save** — Test your selector setup before creating a monitor
-- **Auth System** — JWT-based authentication with user accounts
+- URL: `https://ravijewellers.lk/`
+- Condition: `Return true if the 22KT gold price is less than 320000 LKR`
+- Interval: `Every hour`
 
----
+At each check, WebPulse fetches readable page text, asks OpenAI to identify the relevant value and a supporting excerpt, and compares numeric thresholds in JavaScript. The latest dated relevant value should be selected when a page lists historical prices. The monitor records `true`, `false`, or an error when the requested value cannot be verified. Errors do not trigger alerts.
 
-## Quick Start (Local Development)
+## Setup
 
-### Prerequisites
-- Node.js 18+
-- MongoDB (local or [MongoDB Atlas](https://cloud.mongodb.com) free tier)
-- Gmail account with App Password (for email alerts)
-
-### 1. Clone & Install
+Requirements: Node.js 18+, MongoDB, an OpenAI API key, and optionally a Firecrawl API key and SMTP credentials.
 
 ```bash
-git clone <your-repo-url>
-cd web-monitor
-npm install
-cd client && npm install && cd ..
+npm ci
+cd client && npm ci && cd ..
+cp .env.production.example .env
 ```
 
-### 2. Configure Environment
+Set `MONGO_URI`, `JWT_SECRET`, and `OPENAI_API_KEY` in `.env`. Set `FIRECRAWL_API_KEY` for a higher rate limit and more reliable scheduled scraping. Set `SMTP_*` to deliver email alerts. Use `npm run dev` for the server and React client, or `npm run build && npm start` for production.
+
+The server listens on port 5002 by default and the development client on port 3002.
+
+## Scraping and cost
+
+AI monitors and the page preview use the same scraper. With a Firecrawl key, they try Firecrawl markdown first, then direct HTML, then Jina Reader. Without a key, direct HTML runs first; Firecrawl keyless and Jina remain fallbacks. Firecrawl requests use `maxAge: 0` so scheduled checks request fresh content. A successful scrape does not prove that the source page itself updated recently; check the page's own dates.
+
+As of October 2026, [Firecrawl's pricing](https://www.firecrawl.dev/pricing) lists 1,000 free credits per month and a basic one-page scrape at one credit. One hourly monitor uses roughly 720 page scrapes in a 30-day month; a five-minute monitor uses about 8,640. Firecrawl also documents [keyless scraping](https://docs.firecrawl.dev/features/scrape) with lower rate limits, but keyless access can be blocked for some server IP addresses. OpenAI API usage has separate costs. Add a Firecrawl key for scheduled production use and set intervals with those limits in mind.
+
+The app uses OpenAI's strict JSON schema response format, which is the JavaScript equivalent of validating a Pydantic output model. It verifies that the returned value and evidence appear in the scraped content before recording a result. A missing value, an invalid response, or an API error is stored as an error, rather than a false condition.
+
+## Checks
 
 ```bash
-cp .env.example .env
+node --test tests/*.test.js
+npm run build
 ```
 
-Edit `.env` with your settings:
-
-```env
-MONGO_URI=mongodb://localhost:27017/web-monitor
-JWT_SECRET=your_random_secret_here_make_it_long
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_gmail_app_password
-EMAIL_FROM=WebPulse <your_email@gmail.com>
-```
-
-**Gmail App Password Setup:**
-1. Go to Google Account → Security → 2-Step Verification (enable it)
-2. Go to App Passwords → Generate one for "Mail"
-3. Use that 16-character password as `SMTP_PASS`
-
-### 3. Run
-
-```bash
-# Development (both server + client with hot reload)
-npm run dev
-
-# Or separately:
-npm run server   # Backend on :5000
-npm run client   # React on :3000
-```
-
-Visit `http://localhost:3000`
-
----
-
-## Example Monitors
-
-### Gold Price Tracker (Ravi Jewellers)
-
-| Field | Value |
-|---|---|
-| **Name** | Gold Price - Ravi Jewellers |
-| **URL** | `https://ravijewellers.lk/` |
-| **Type** | Price Drop |
-| **CSS Selector** | *(use browser DevTools to find the price element selector)* |
-| **Regex** | `(\d[\d,.]+)` |
-| **Condition** | Less than → `360000` (Number) |
-| **Interval** | Every 1 hour |
-| **Puppeteer** | Enable if page uses JavaScript rendering |
-
-### Goethe German Course (A1 Sat/Sun)
-
-| Field | Value |
-|---|---|
-| **Name** | German A1 Weekend Course |
-| **URL** | `https://www.goethe.de/ins/lk/en/spr/kur/tup.cfm?...` |
-| **Type** | Text Match |
-| **CSS Selector** | *(target the course schedule/availability element)* |
-| **Condition** | Contains → `Saturday` or `Available` |
-| **Interval** | Every 6 hours |
-| **Puppeteer** | Enable (Goethe site is JS-heavy) |
-
----
-
-## Finding CSS Selectors
-
-1. Open target URL in Chrome/Firefox
-2. Right-click the element you want to track → **Inspect**
-3. In DevTools, right-click the highlighted HTML → **Copy** → **Copy selector**
-4. Paste into the "CSS Selector" field
-5. Use the **Test Now** button to verify before saving
-
-**Tips:**
-- For prices displayed as "Rs. 360,000", use regex `(\d[\d,.]+)` to extract just `360000`
-- If the page loads data via JavaScript, enable the "Puppeteer" checkbox
-- Try broad selectors first (e.g., `.price`, `h2`), then narrow down
-
----
-
-## Deploying to Namecheap Shared Hosting
-
-### Option A: Namecheap with Node.js (Stellar Business+ plan)
-
-Namecheap shared hosting supports Node.js via Phusion Passenger:
-
-1. **Build the React client:**
-   ```bash
-   npm run build
-   ```
-
-2. **Upload via cPanel File Manager or SSH:**
-   Upload the entire project (excluding `node_modules` and `client/node_modules`) to your home directory.
-
-3. **Set up Node.js in cPanel:**
-   - Go to cPanel → "Setup Node.js App"
-   - Node version: 18+
-   - Application root: `/home/<username>/web-monitor`
-   - Startup file: `server/index.js`
-   - Click "Create"
-
-4. **Install dependencies via SSH:**
-   ```bash
-   cd ~/web-monitor
-   npm install --production
-   ```
-
-5. **Set environment variables** in cPanel Node.js app settings or create `.env` file
-
-6. **MongoDB:** Use MongoDB Atlas (free tier) since shared hosting doesn't include MongoDB.
-
-7. **Important:** Set `USE_CHEERIO_ONLY=true` in `.env` — Puppeteer won't work on shared hosting.
-
-### Option B: VPS (Recommended for Full Features)
-
-For Puppeteer support and better reliability, use a VPS:
-
-**DigitalOcean / Vultr / Linode ($5-6/mo):**
-
-```bash
-# On your VPS
-sudo apt update && sudo apt install -y nodejs npm mongodb-org nginx
-
-# Clone and setup
-git clone <repo> ~/web-monitor
-cd ~/web-monitor
-npm run setup
-
-# Create .env
-cp .env.example .env
-nano .env  # Fill in your values
-
-# Run with PM2 (process manager)
-npm install -g pm2
-pm2 start server/index.js --name webpulse
-pm2 startup
-pm2 save
-
-# Nginx reverse proxy
-sudo nano /etc/nginx/sites-available/webpulse
-```
-
-Nginx config:
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-
-    location / {
-        proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-Then enable SSL with Certbot:
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d yourdomain.com
-```
-
-### Option C: Free/Cheap Cloud Hosting
-
-- **Railway.app** — Free tier, easy deploy, supports MongoDB
-- **Render.com** — Free tier with cron support
-- **Fly.io** — Free tier, global deployment
-
----
-
-## Architecture
-
-```
-web-monitor/
-├── server/
-│   ├── index.js              # Express server entry
-│   ├── config/db.js          # MongoDB connection
-│   ├── middleware/auth.js     # JWT auth middleware
-│   ├── models/
-│   │   ├── User.js           # User schema
-│   │   ├── Monitor.js        # Monitor schema (core)
-│   │   └── Notification.js   # Alert notifications
-│   ├── routes/
-│   │   ├── auth.js           # Login/Register
-│   │   ├── monitors.js       # CRUD + run/toggle
-│   │   ├── notifications.js  # Alerts management
-│   │   └── stats.js          # Dashboard stats
-│   └── services/
-│       ├── scraperService.js  # Cheerio + Puppeteer scraping
-│       ├── schedulerService.js # Cron job management
-│       └── emailService.js    # Nodemailer SMTP
-├── client/
-│   └── src/
-│       ├── App.js            # Router + Auth
-│       ├── hooks/useAuth.js  # Auth context
-│       ├── utils/api.js      # Axios API client
-│       ├── components/       # Sidebar, shared UI
-│       ├── pages/            # All page components
-│       └── styles/           # Global CSS
-├── .env.example              # Environment template
-├── .htaccess                 # Namecheap Passenger config
-└── package.json              # Root with scripts
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Create account |
-| POST | `/api/auth/login` | Sign in |
-| GET | `/api/auth/me` | Get current user |
-| GET | `/api/monitors` | List all monitors |
-| POST | `/api/monitors` | Create monitor |
-| GET | `/api/monitors/:id` | Get monitor + history |
-| PUT | `/api/monitors/:id` | Update monitor |
-| DELETE | `/api/monitors/:id` | Delete monitor |
-| POST | `/api/monitors/:id/run` | Force run check |
-| POST | `/api/monitors/:id/toggle` | Pause/Resume |
-| POST | `/api/monitors/test-scrape` | Test scrape without saving |
-| GET | `/api/notifications` | List alerts |
-| PUT | `/api/notifications/read-all` | Mark all read |
-| POST | `/api/notifications/test-email` | Send test email |
-| GET | `/api/stats` | Dashboard stats |
-| GET | `/api/health` | Server health check |
-
----
-
-## License
-
-MIT
+The scheduler runs inside the Node.js server process. Keep one server instance running continuously for scheduled checks; multiple server instances would need a shared job queue to avoid duplicate runs.

@@ -41,6 +41,8 @@ const monitorSchema = new mongoose.Schema({
   // Tracking
   lastChecked: { type: Date },
   lastValue:   { type: String },
+  lastResult:  { type: Boolean, default: null },
+  lastSource:  { type: String },
   lastStatus:  { type: String, enum: ['success', 'error', 'triggered', 'pending'], default: 'pending' },
   lastError:   { type: String },
   triggerCount:{ type: Number, default: 0 },
@@ -51,7 +53,9 @@ const monitorSchema = new mongoose.Schema({
     checkedAt: { type: Date, default: Date.now },
     value:  String,
     status: { type: String, enum: ['success', 'error', 'triggered'] },
-    error:  String
+    error:  String,
+    reason: String,
+    evidence: String
   }],
 
   createdAt: { type: Date, default: Date.now },

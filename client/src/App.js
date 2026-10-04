@@ -34,7 +34,7 @@ const ProtectedRoute = ({ children }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 28, height: 28, borderRadius: 6,
-            background: 'linear-gradient(135deg, var(--accent), var(--accent-blue))',
+            background: '#253653',
             display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
             <FiZap size={14} color="#fff" />
@@ -65,7 +65,7 @@ const App = () => (
   <BrowserRouter>
     <AuthProvider>
       <Toaster position="top-right" toastOptions={{
-        style: { background: '#111120', color: '#e8e8f0', border: '1px solid #1e1e35', fontSize: 14 }
+        style: { background: '#ffffff', color: '#151d2c', border: '1px solid #e6e9ee', fontSize: 14 }
       }} />
       <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />

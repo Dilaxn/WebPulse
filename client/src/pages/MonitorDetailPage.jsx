@@ -101,6 +101,7 @@ const MonitorDetailPage = () => {
           { label: 'Total Checks', value: m.checkCount },
           { label: 'Triggers', value: m.triggerCount },
           { label: 'Status', value: m.isPaused ? 'Paused' : m.lastStatus || 'Pending' },
+          { label: 'Last answer', value: m.lastStatus === 'error' ? 'Unknown' : m.lastResult === true ? 'True' : m.lastResult === false ? 'False' : 'Pending' },
           { label: 'Last Checked', value: m.lastChecked ? formatDistanceToNow(new Date(m.lastChecked), { addSuffix: true }) : 'Never' }
         ].map((item, i) => (
           <div key={i} className="card" style={{ padding: '12px 16px' }}>
@@ -134,7 +135,7 @@ const MonitorDetailPage = () => {
       {m.lastValue && (
         <div className="card" style={{ marginBottom: 28, padding: 20 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-            Last Scraped Value
+            Last observed value {m.lastSource ? `· ${m.lastSource}` : ''}
           </div>
           <pre style={{
             fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--accent)',
@@ -143,6 +144,11 @@ const MonitorDetailPage = () => {
           }}>
             {m.lastValue}
           </pre>
+          {m.history?.length > 0 && [...m.history].reverse().find(h => h.evidence)?.evidence && (
+            <div style={{ marginTop: 12, color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6 }}>
+              <strong>Source evidence: </strong>{[...m.history].reverse().find(h => h.evidence).evidence}
+            </div>
+          )}
         </div>
       )}
 
@@ -189,7 +195,7 @@ const MonitorDetailPage = () => {
                     </span>
                   </td>
                   <td style={{ padding: '10px 16px', fontFamily: 'var(--font-mono)', fontSize: 12, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {h.error || h.value || '—'}
+                    {h.error || (h.value ? `${h.value}${h.reason ? ` · ${h.reason}` : ''}` : '—')}
                   </td>
                 </tr>
               ))}
