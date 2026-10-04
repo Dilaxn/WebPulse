@@ -40,3 +40,12 @@ npm run build
 ```
 
 The scheduler runs inside the Node.js server process. Keep one server instance running continuously for scheduled checks; multiple server instances would need a shared job queue to avoid duplicate runs.
+
+## EC2 deployment
+
+GitHub Actions builds and pushes the image, then runs `docker compose pull webpulse` and `docker compose up -d webpulse` in `/opt/paas` on EC2. The workflow does not pass application API keys into the container. Set `OPENAI_API_KEY` and, for reliable Firecrawl access, `FIRECRAWL_API_KEY` in the EC2 Docker Compose environment or its referenced env file. Recreate the `webpulse` container after changing environment values. You can check whether keys are present without printing them:
+
+```bash
+cd /opt/paas
+docker compose exec webpulse node -e "console.log({openai: Boolean(process.env.OPENAI_API_KEY), firecrawl: Boolean(process.env.FIRECRAWL_API_KEY)})"
+```

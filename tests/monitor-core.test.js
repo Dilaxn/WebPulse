@@ -50,3 +50,18 @@ test('falls back to direct HTML when Firecrawl cannot scrape', async () => {
     assert.equal(result.value, PAGE);
   } finally { scraper.scrapeWithFirecrawl = firecrawl; scraper.scrapeWithCheerio = cheerio; if (key === undefined) delete process.env.FIRECRAWL_API_KEY; else process.env.FIRECRAWL_API_KEY = key; }
 });
+
+test('reports which provider returned a 403', async () => {
+  const original = axios.get;
+  axios.get = async () => {
+    const error = new Error('Request failed with status code 403');
+    error.response = { status: 403 };
+    throw error;
+  };
+  try {
+    const direct = await scraper.scrapeWithCheerio('https://ravijewellers.lk/');
+    const jina = await scraper.scrapeWithJina('https://ravijewellers.lk/');
+    assert.match(direct.error, /Direct HTML: HTTP 403 from website/);
+    assert.match(jina.error, /Jina Reader: HTTP 403/);
+  } finally { axios.get = original; }
+});

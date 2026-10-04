@@ -90,16 +90,21 @@ class SchedulerService {
         const prompt = monitor.aiPrompt?.trim() || monitor.condition.value;
         try {
           const tried = [];
-          let page, evaluation;
+          let page, evaluation, evidenceError;
           for (let attempt = 0; attempt < 3; attempt += 1) {
             page = await scraper.scrapeForAI(monitor.url, tried);
-            if (!page.success) throw new Error(page.error);
+            if (!page.success) {
+              throw new Error(evidenceError
+                ? `${evidenceError.message} (using ${tried.join(', ')}). Other sources failed: ${page.error}`
+                : page.error);
+            }
             tried.push(page.source);
             try {
               evaluation = await evaluateWithAI(page.value, prompt);
               break;
             } catch (error) {
               if (error.code !== 'EVIDENCE_MISSING' || attempt === 2) throw error;
+              evidenceError = error;
             }
           }
           historyEntry.value = evaluation.extractedValue;

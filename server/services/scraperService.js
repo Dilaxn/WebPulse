@@ -93,8 +93,11 @@ class ScraperService {
       const text = typeof data === 'string' ? data : JSON.stringify(data);
       return { success: true, value: text.substring(0, 30000), source: 'Jina Reader' };
     } catch (error) {
-      console.warn(`⚠️  Jina Reader failed for ${url}: ${error.message}`);
-      return { success: false, error: error.message };
+      const message = error.response?.status
+        ? `HTTP ${error.response.status} from Jina Reader`
+        : error.message;
+      console.warn(`⚠️  Jina Reader failed for ${url}: ${message}`);
+      return { success: false, error: `Jina Reader: ${message}` };
     }
   }
 
@@ -153,7 +156,7 @@ class ScraperService {
 
       return { success: true, value: value.trim(), source: 'Direct HTML' };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: `Direct HTML: ${error.response?.status ? `HTTP ${error.response.status} from website` : error.message}` };
     }
   }
 
