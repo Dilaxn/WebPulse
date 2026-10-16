@@ -62,10 +62,9 @@ class ScraperService {
     const attempts = [];
     const firecrawl = () => this.scrapeWithFirecrawl(url);
     const direct = () => this.scrapeWithCheerio(url);
-    // A free API key is recommended: some hosting IPs are blocked by keyless Firecrawl.
-    const methods = process.env.FIRECRAWL_API_KEY
-      ? [['Firecrawl', firecrawl], ['Direct HTML', direct], ['Jina Reader', () => this.scrapeWithJina(url)]]
-      : [['Direct HTML', direct], ['Firecrawl', firecrawl], ['Jina Reader', () => this.scrapeWithJina(url)]];
+    // Prefer the origin page for fresh values; render through Firecrawl when
+    // direct HTML is blocked or lacks the requested data.
+    const methods = [['Direct HTML', direct], ['Firecrawl', firecrawl], ['Jina Reader', () => this.scrapeWithJina(url)]];
     for (const [source, fetchPage] of methods) {
       if (skipSources.includes(source)) continue;
       const result = await fetchPage();

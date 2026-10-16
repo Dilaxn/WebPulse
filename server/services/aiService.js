@@ -45,6 +45,48 @@ function findNumberOnPage(content, value) {
   return null;
 }
 
+function latestDatedKaratPrice(content, prompt) {
+  const karat = prompt.match(/\b(\d{1,2})\s*(?:kt|karat|carat)\b/i)?.[1];
+  if (!karat) return null;
+
+  // Some sites retain old rates in hidden banners. Pair each dated rate with
+  // its karat label and currency before considering it for an alert.
+  const text = content.normalize('NFKC').replace(/\s+/g, ' ');
+  const dates = [...text.matchAll(/\bDATE\s*:\s*(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})\b/gi)];
+  const label = new RegExp(`\\b${karat}\\s*(?:KT|KARAT|CARAT)\\b`, 'i');
+  const candidates = [];
+
+  for (let i = 0; i < dates.length; i += 1) {
+    const [, dayText, monthText, yearText] = dates[i];
+    const day = Number(dayText);
+    const month = Number(monthText);
+    const year = Number(yearText);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) continue;
+
+    const start = dates[i].index + dates[i][0].length;
+    const end = Math.min(dates[i + 1]?.index ?? text.length, start + 160);
+    const section = text.slice(start, end);
+    const item = label.exec(section);
+    if (!item) continue;
+    const afterItem = section.slice(item.index + item[0].length);
+    const price = /(?:\b(?:LKR|USD|INR|Rs\.?)\s*|[$£€]\s*)(\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?)/i.exec(afterItem);
+    if (!price) continue;
+    const value = Number(price[1].replace(/,/g, ''));
+    if (!Number.isFinite(value)) continue;
+    candidates.push({ date: date.getTime(), value, displayed: price[1],
+      evidence: `${dates[i][0]} ${section.slice(item.index, item.index + item[0].length + price.index + price[0].length).trim()}` });
+  }
+
+  if (!candidates.length) return null;
+  const newest = Math.max(...candidates.map(candidate => candidate.date));
+  const latest = candidates.filter(candidate => candidate.date === newest);
+  if (new Set(latest.map(candidate => candidate.value)).size > 1) {
+    throw missingEvidence(`Conflicting ${karat}KT prices share the latest date`);
+  }
+  return latest[0];
+}
+
 function missingEvidence(message) {
   const error = new Error(message);
   error.code = 'EVIDENCE_MISSING';
@@ -83,9 +125,14 @@ async function evaluateWithAI(scrapedContent, userPrompt) {
     if (!Number.isFinite(value)) throw new Error('The requested number could not be read unambiguously');
     const source = findNumberOnPage(content, value);
     if (!source) throw missingEvidence(`The extracted number ${result.extractedValue} was not found in the scraped page`);
-    const met = numeric.operator === '<' ? value < numeric.threshold : value > numeric.threshold;
-    return { met, extractedValue: source.value, evidence: source.evidence,
-      reason: `${value.toLocaleString()} ${numeric.operator} ${numeric.threshold.toLocaleString()} → ${met}` };
+    const latest = latestDatedKaratPrice(content, userPrompt);
+    if (latest && Date.now() - latest.date > 7 * 24 * 60 * 60 * 1000) {
+      throw missingEvidence('The latest dated karat price on this page is over seven days old');
+    }
+    const observed = latest?.value ?? value;
+    const met = numeric.operator === '<' ? observed < numeric.threshold : observed > numeric.threshold;
+    return { met, extractedValue: latest?.displayed ?? source.value, evidence: latest?.evidence ?? source.evidence,
+      reason: `${observed.toLocaleString()} ${numeric.operator} ${numeric.threshold.toLocaleString()} → ${met}${latest ? ' (latest dated rate)' : ''}` };
   }
   const normalizedPage = content.normalize('NFKC').replace(/\s+/g, ' ').toLowerCase();
   const normalizedValue = result.extractedValue.normalize('NFKC').replace(/\s+/g, ' ').toLowerCase();
@@ -98,4 +145,4 @@ async function evaluateWithAI(scrapedContent, userPrompt) {
   return { met: result.met, extractedValue: result.extractedValue, evidence: result.evidence, reason: result.reason };
 }
 
-module.exports = { evaluateWithAI, parseNumericCondition, extractNumber };
+module.exports = { evaluateWithAI, parseNumericCondition, extractNumber, latestDatedKaratPrice };
